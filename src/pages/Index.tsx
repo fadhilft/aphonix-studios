@@ -5,10 +5,12 @@ import Services from "@/components/Services";
 import Projects from "@/components/Projects";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
+import WelcomeAd from "@/components/WelcomeAd";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      <WelcomeAd />
       <Navbar />
       <Hero />
       <About />
