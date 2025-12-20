@@ -218,7 +218,10 @@ const ProjectsAdmin = () => {
                 <img
                   src={project.image}
                   alt={project.title}
-                  className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                  className="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-secondary"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://placehold.co/96x96/1a1a2e/00f0ff?text=No+Image';
+                  }}
                 />
                 <div className="flex-1 min-w-0">
                   {editingId === project.id ? (

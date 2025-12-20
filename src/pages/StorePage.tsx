@@ -161,11 +161,14 @@ const StorePage = () => {
                 className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-500 group animate-fade-in"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="aspect-video overflow-hidden relative">
+                <div className="aspect-video overflow-hidden relative bg-secondary">
                   <img
                     src={product.image}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://placehold.co/400x300/1a1a2e/00f0ff?text=No+Image';
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
