@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mail, Phone, MapPin, Send } from "lucide-react";
+import { Mail, Phone, MapPin, Send, Instagram } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Contact = () => {
@@ -81,6 +81,23 @@ const Contact = () => {
                 <div>
                   <h4 className="font-semibold text-foreground mb-1">Location</h4>
                   <p className="text-muted-foreground">India</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Instagram className="text-primary" size={24} />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground mb-1">Instagram</h4>
+                  <a 
+                    href="https://instagram.com/aphonixstudios" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    @aphonixstudios
+                  </a>
                 </div>
               </div>
             </div>

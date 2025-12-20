@@ -312,8 +312,15 @@ const Admin = () => {
                   </form>
                 ) : (
                   <>
-                    <div className="aspect-video">
-                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                    <div className="aspect-video bg-secondary">
+                      <img 
+                        src={product.image} 
+                        alt={product.name} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://placehold.co/400x300/1a1a2e/00f0ff?text=No+Image';
+                        }}
+                      />
                     </div>
                     <div className="p-4">
                       <h3 className="font-display font-semibold text-foreground mb-1">{product.name}</h3>

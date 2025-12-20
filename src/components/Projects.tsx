@@ -100,6 +100,23 @@ const Projects = () => {
     }
   };
 
+  // Convert YouTube URL to embed format
+  const getEmbedUrl = (url: string) => {
+    if (!url) return "";
+    // Handle regular YouTube URLs
+    if (url.includes("youtube.com/watch?v=")) {
+      const videoId = url.split("v=")[1]?.split("&")[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    // Handle youtu.be short URLs
+    if (url.includes("youtu.be/")) {
+      const videoId = url.split("youtu.be/")[1]?.split("?")[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    // Already an embed URL
+    return url;
+  };
+
   const handleExternalClick = (project: Project) => {
     if (project.externalUrl) {
       window.open(project.externalUrl, "_blank");
@@ -152,11 +169,14 @@ const Projects = () => {
               style={{ animationDelay: `${index * 100}ms` }}
             >
               {/* Image */}
-              <div className="aspect-[4/3] overflow-hidden relative">
+              <div className="aspect-[4/3] overflow-hidden relative bg-secondary">
                 <img
                   src={project.image}
                   alt={project.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://placehold.co/600x450/1a1a2e/00f0ff?text=No+Image';
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
@@ -217,7 +237,7 @@ const Projects = () => {
           <div className="aspect-video">
             {selectedProject?.videoUrl && (
               <iframe
-                src={selectedProject.videoUrl}
+                src={getEmbedUrl(selectedProject.videoUrl)}
                 className="w-full h-full rounded-lg"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
