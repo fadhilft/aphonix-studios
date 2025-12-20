@@ -169,12 +169,30 @@ const ProjectsAdmin = () => {
                 onChange={(e) => setNewProject({ ...newProject, category: e.target.value })}
                 className="bg-secondary border-border"
               />
-              <Input
-                placeholder="Image URL *"
-                value={newProject.image}
-                onChange={(e) => setNewProject({ ...newProject, image: e.target.value })}
-                className="bg-secondary border-border"
-              />
+              <div className="space-y-2">
+                <Input
+                  placeholder="Image URL *"
+                  value={newProject.image}
+                  onChange={(e) => setNewProject({ ...newProject, image: e.target.value })}
+                  className="bg-secondary border-border"
+                />
+                <p className="text-xs text-muted-foreground">
+                  💡 Tip: Use direct image links from Imgur, Unsplash, or Google Drive
+                </p>
+                {newProject.image && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                    <img 
+                      src={newProject.image} 
+                      alt="Preview" 
+                      className="w-24 h-24 object-cover rounded-lg bg-secondary border border-border"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://placehold.co/96x96/1a1a2e/ff0000?text=Invalid+URL';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
               <Input
                 placeholder="Rupees"
                 value={newProject.rupees}

@@ -201,13 +201,29 @@ const Admin = () => {
               <div>
                 <label className="block text-sm font-medium mb-2">Image URL</label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={newProduct.image}
                   onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
                   className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="Paste direct image link here"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  💡 Tip: Use direct image links from Imgur, Unsplash, or Google Drive (shared link)
+                </p>
+                {newProduct.image && (
+                  <div className="mt-2">
+                    <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                    <img 
+                      src={newProduct.image} 
+                      alt="Preview" 
+                      className="w-24 h-24 object-cover rounded-lg bg-secondary border border-border"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://placehold.co/96x96/1a1a2e/ff0000?text=Invalid+URL';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Price (₹)</label>
