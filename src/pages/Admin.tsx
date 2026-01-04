@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Edit2, Save, X, Lock, ShoppingBag, Upload, Image } from "lucide-react";
+import { Plus, Trash2, Edit2, Save, X, Lock, ShoppingBag, Upload, Image, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
@@ -20,11 +20,14 @@ const Admin = () => {
   const [newProduct, setNewProduct] = useState({ name: "", image: "", price: "", description: "" });
   const [showAddForm, setShowAddForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [megaSaleEnabled, setMegaSaleEnabled] = useState(false);
+  const [togglingMegaSale, setTogglingMegaSale] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchProducts();
+    fetchMegaSaleSetting();
   }, []);
 
   const fetchProducts = async () => {
@@ -35,6 +38,39 @@ const Admin = () => {
     } else {
       setProducts(data.map(p => ({ id: p.id, name: p.name, image: p.image, price: Number(p.price), description: p.description || '' })));
     }
+  };
+
+  const fetchMegaSaleSetting = async () => {
+    const { data } = await supabase
+      .from('store_settings')
+      .select('value')
+      .eq('key', 'mega_sale_enabled')
+      .maybeSingle();
+    
+    if (data) {
+      setMegaSaleEnabled(data.value === 'true');
+    }
+  };
+
+  const toggleMegaSale = async () => {
+    setTogglingMegaSale(true);
+    const newValue = !megaSaleEnabled;
+    
+    const { error } = await supabase
+      .from('store_settings')
+      .update({ value: newValue.toString() })
+      .eq('key', 'mega_sale_enabled');
+
+    if (error) {
+      toast({ title: "Error updating mega sale setting", variant: "destructive" });
+    } else {
+      setMegaSaleEnabled(newValue);
+      toast({ 
+        title: newValue ? "🔥 MEGA SALE ACTIVATED!" : "Mega Sale Deactivated",
+        description: newValue ? "Store is now in mega sale mode!" : "Store returned to normal mode"
+      });
+    }
+    setTogglingMegaSale(false);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -127,6 +163,36 @@ const Admin = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Mega Sale Toggle */}
+        <div className={`mb-8 p-6 rounded-xl border-2 transition-all duration-500 ${megaSaleEnabled ? 'bg-gradient-to-r from-red-500/20 via-orange-500/20 to-yellow-500/20 border-orange-500 animate-pulse' : 'bg-card border-border'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-full ${megaSaleEnabled ? 'bg-orange-500 animate-bounce' : 'bg-secondary'}`}>
+                <Zap size={24} className={megaSaleEnabled ? 'text-white' : 'text-muted-foreground'} />
+              </div>
+              <div>
+                <h3 className={`font-display text-xl font-bold ${megaSaleEnabled ? 'text-orange-500' : 'text-foreground'}`}>
+                  {megaSaleEnabled ? '🔥 MEGA SALE IS LIVE!' : 'Mega Sale Mode'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {megaSaleEnabled ? 'Your store is in mega sale mode with special effects!' : 'Activate to enable mega sale theme on the store'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={toggleMegaSale}
+              disabled={togglingMegaSale}
+              className={`px-6 py-3 rounded-xl font-display font-bold transition-all duration-300 ${
+                megaSaleEnabled 
+                  ? 'bg-secondary text-foreground border border-border hover:bg-secondary/80' 
+                  : 'bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white hover:scale-105 animate-shimmer'
+              } disabled:opacity-50`}
+            >
+              {togglingMegaSale ? 'Updating...' : megaSaleEnabled ? 'Turn Off' : '🔥 Activate Mega Sale'}
+            </button>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3"><ShoppingBag className="text-primary" size={28} /><h2 className="font-display text-2xl font-bold">Products ({products.length})</h2></div>
           <button onClick={() => setShowAddForm(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:scale-105 transition-transform"><Plus size={20} />Add Product</button>
