@@ -2,6 +2,7 @@ import { ExternalLink, Play, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Project {
   id: string;
@@ -14,77 +15,45 @@ interface Project {
   rupees?: string;
 }
 
-const defaultProjects: Project[] = [
-  {
-    id: "1",
-    title: "E-Commerce Platform",
-    category: "Web Design",
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600",
-    description: "Modern shopping experience with seamless checkout flow",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    externalUrl: "https://example.com"
-  },
-  {
-    id: "2",
-    title: "Brand Identity Video",
-    category: "Video Editing",
-    image: "https://images.unsplash.com/photo-1536240478700-b869070f9279?w=600",
-    description: "Cinematic brand story for tech startup",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    externalUrl: "https://example.com"
-  },
-  {
-    id: "3",
-    title: "Music Festival Poster",
-    category: "Poster Making",
-    image: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600",
-    description: "Vibrant poster design for live music event",
-    externalUrl: "https://example.com"
-  },
-  {
-    id: "4",
-    title: "Restaurant Website",
-    category: "Web Design",
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600",
-    description: "Elegant online presence for fine dining",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    externalUrl: "https://example.com"
-  },
-  {
-    id: "5",
-    title: "Product Launch Video",
-    category: "Video Editing",
-    image: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=600",
-    description: "High-impact reveal video for new product line",
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-    externalUrl: "https://example.com"
-  },
-  {
-    id: "6",
-    title: "Tech Conference Banner",
-    category: "Poster Making",
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600",
-    description: "Dynamic banner design for developer conference",
-    externalUrl: "https://example.com"
-  }
-];
-
 const Projects = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showVideo, setShowVideo] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedProjects = localStorage.getItem("aphonix_projects");
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects));
-    } else {
-      setProjects(defaultProjects);
-      localStorage.setItem("aphonix_projects", JSON.stringify(defaultProjects));
-    }
+    fetchProjects();
   }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedProjects: Project[] = (data || []).map(p => ({
+        id: p.id,
+        title: p.title,
+        category: p.category,
+        image: p.image,
+        description: p.description || "",
+        videoUrl: p.video_url || undefined,
+        externalUrl: p.external_url || undefined,
+        rupees: p.rupees || undefined
+      }));
+
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,71 +130,81 @@ const Projects = () => {
           </form>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredProjects.map((project, index) => (
-            <div
-              key={project.id}
-              className="group relative bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition-all duration-500 animate-fade-in hover:-translate-y-2"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              {/* Image */}
-              <div className="aspect-[4/3] overflow-hidden relative bg-secondary">
-                <img
-                  src={project.image}
-                  alt={project.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://placehold.co/600x450/1a1a2e/00f0ff?text=No+Image';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading projects...</p>
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No projects found.</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredProjects.map((project, index) => (
+              <div
+                key={project.id}
+                className="group relative bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/50 transition-all duration-500 animate-fade-in hover:-translate-y-2"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                {/* Image */}
+                <div className="aspect-[4/3] overflow-hidden relative bg-secondary">
+                  <img
+                    src={project.image}
+                    alt={project.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://placehold.co/600x450/1a1a2e/00f0ff?text=No+Image';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  
+                  {/* Overlay Icons */}
+                  <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                    {project.videoUrl && (
+                      <button 
+                        onClick={() => handlePlayClick(project)}
+                        className="w-12 h-12 bg-primary rounded-full flex items-center justify-center hover:scale-110 transition-transform animate-glow-pulse"
+                      >
+                        <Play size={20} className="text-primary-foreground ml-1" />
+                      </button>
+                    )}
+                    {project.externalUrl && (
+                      <button 
+                        onClick={() => handleExternalClick(project)}
+                        className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center hover:scale-110 transition-transform border border-border"
+                      >
+                        <ExternalLink size={20} className="text-foreground" />
+                      </button>
+                    )}
+                  </div>
+                </div>
                 
-                {/* Overlay Icons */}
-                <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  {project.videoUrl && (
-                    <button 
-                      onClick={() => handlePlayClick(project)}
-                      className="w-12 h-12 bg-primary rounded-full flex items-center justify-center hover:scale-110 transition-transform animate-glow-pulse"
-                    >
-                      <Play size={20} className="text-primary-foreground ml-1" />
-                    </button>
-                  )}
-                  {project.externalUrl && (
-                    <button 
-                      onClick={() => handleExternalClick(project)}
-                      className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center hover:scale-110 transition-transform border border-border"
-                    >
-                      <ExternalLink size={20} className="text-foreground" />
-                    </button>
+                {/* Content */}
+                <div className="p-6">
+                  <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full mb-3">
+                    {project.category}
+                  </span>
+                  <h3 className="font-display text-xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
+                    {project.title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    {project.description}
+                  </p>
+                  {project.rupees && (
+                    <p className="text-primary font-semibold mt-2">₹{project.rupees}</p>
                   )}
                 </div>
+                
+                {/* Glow Effect */}
+                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(to bottom right, hsl(var(--primary) / 0.1), transparent, hsl(var(--accent) / 0.1))'
+                  }}
+                />
               </div>
-              
-              {/* Content */}
-              <div className="p-6">
-                <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full mb-3">
-                  {project.category}
-                </span>
-                <h3 className="font-display text-xl font-semibold text-foreground mb-2 group-hover:text-primary transition-colors">
-                  {project.title}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  {project.description}
-                </p>
-                {project.rupees && (
-                  <p className="text-primary font-semibold mt-2">₹{project.rupees}</p>
-                )}
-              </div>
-              
-              {/* Glow Effect */}
-              <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-                style={{
-                  background: 'linear-gradient(to bottom right, hsl(var(--primary) / 0.1), transparent, hsl(var(--accent) / 0.1))'
-                }}
-              />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Video Dialog */}

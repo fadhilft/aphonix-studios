@@ -3,6 +3,7 @@ import { ShoppingBag, Send, Search, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Product {
   id: string;
@@ -17,41 +18,38 @@ const StorePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderForm, setOrderForm] = useState({ productId: "", name: "", email: "", phone: "", address: "" });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedProducts = localStorage.getItem("aphonix-products");
-    if (savedProducts) {
-      setProducts(JSON.parse(savedProducts));
-    } else {
-      const demoProducts: Product[] = [
-        {
-          id: "1",
-          name: "Premium Logo Design",
-          image: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=400",
-          price: 2999,
-          description: "Custom logo design with unlimited revisions"
-        },
-        {
-          id: "2",
-          name: "Video Editing Package",
-          image: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=400",
-          price: 4999,
-          description: "Professional video editing up to 10 minutes"
-        },
-        {
-          id: "3",
-          name: "Website Development",
-          image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400",
-          price: 14999,
-          description: "Complete responsive website with 5 pages"
-        }
-      ];
-      setProducts(demoProducts);
-      localStorage.setItem("aphonix-products", JSON.stringify(demoProducts));
-    }
+    fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedProducts: Product[] = (data || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        image: p.image,
+        price: p.price,
+        description: p.description || ""
+      }));
+
+      setProducts(formattedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +146,11 @@ const StorePage = () => {
           </p>
         </div>
 
-        {filteredProducts.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-16 animate-fade-in">
+            <p className="text-muted-foreground">Loading products...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16 animate-fade-in">
             <ShoppingBag className="mx-auto text-muted-foreground mb-4" size={48} />
             <p className="text-muted-foreground">No products found. Try a different search!</p>
