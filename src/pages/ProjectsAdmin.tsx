@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Edit2, Save, X, Lock } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit2, Save, X, Lock, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Project {
   id: string;
@@ -23,6 +24,7 @@ const ProjectsAdmin = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [newProject, setNewProject] = useState<Partial<Project>>({
     title: "",
     category: "",
@@ -36,11 +38,37 @@ const ProjectsAdmin = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const savedProjects = localStorage.getItem("aphonix_projects");
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects));
+    if (isAuthenticated) {
+      fetchProjects();
     }
-  }, []);
+  }, [isAuthenticated]);
+
+  const fetchProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedProjects: Project[] = (data || []).map(p => ({
+        id: p.id,
+        title: p.title,
+        category: p.category,
+        image: p.image,
+        description: p.description || "",
+        videoUrl: p.video_url || undefined,
+        externalUrl: p.external_url || undefined,
+        rupees: p.rupees || undefined
+      }));
+
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast({ title: "Error loading projects", variant: "destructive" });
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,44 +80,106 @@ const ProjectsAdmin = () => {
     }
   };
 
-  const saveProjects = (updatedProjects: Project[]) => {
-    localStorage.setItem("aphonix_projects", JSON.stringify(updatedProjects));
-    setProjects(updatedProjects);
+  const handleImageUpload = async (file: File, isNewProject: boolean = true, projectId?: string) => {
+    try {
+      setUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `projects/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      const imageUrl = urlData.publicUrl;
+
+      if (isNewProject) {
+        setNewProject({ ...newProject, image: imageUrl });
+      } else if (projectId) {
+        await handleUpdateProject(projectId, "image", imageUrl);
+      }
+
+      toast({ title: "Image uploaded successfully!" });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({ title: "Error uploading image", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (!newProject.title || !newProject.category || !newProject.image) {
       toast({ title: "Please fill in required fields", variant: "destructive" });
       return;
     }
-    const project: Project = {
-      id: Date.now().toString(),
-      title: newProject.title!,
-      category: newProject.category!,
-      image: newProject.image!,
-      description: newProject.description || "",
-      videoUrl: newProject.videoUrl || "",
-      externalUrl: newProject.externalUrl || "",
-      rupees: newProject.rupees || ""
-    };
-    const updatedProjects = [...projects, project];
-    saveProjects(updatedProjects);
-    setNewProject({ title: "", category: "", image: "", description: "", videoUrl: "", externalUrl: "", rupees: "" });
-    setShowAddForm(false);
-    toast({ title: "Project added successfully!" });
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .insert({
+          title: newProject.title,
+          category: newProject.category,
+          image: newProject.image,
+          description: newProject.description || null,
+          video_url: newProject.videoUrl || null,
+          external_url: newProject.externalUrl || null,
+          rupees: newProject.rupees || null
+        });
+
+      if (error) throw error;
+
+      await fetchProjects();
+      setNewProject({ title: "", category: "", image: "", description: "", videoUrl: "", externalUrl: "", rupees: "" });
+      setShowAddForm(false);
+      toast({ title: "Project added successfully!" });
+    } catch (error) {
+      console.error('Error adding project:', error);
+      toast({ title: "Error adding project", variant: "destructive" });
+    }
   };
 
-  const handleUpdateProject = (id: string, field: keyof Project, value: string) => {
-    const updatedProjects = projects.map((p) =>
-      p.id === id ? { ...p, [field]: value } : p
-    );
-    saveProjects(updatedProjects);
+  const handleUpdateProject = async (id: string, field: keyof Project, value: string) => {
+    try {
+      const dbField = field === 'videoUrl' ? 'video_url' : field === 'externalUrl' ? 'external_url' : field;
+      
+      const { error } = await supabase
+        .from('projects')
+        .update({ [dbField]: value || null })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setProjects(projects.map((p) =>
+        p.id === id ? { ...p, [field]: value } : p
+      ));
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast({ title: "Error updating project", variant: "destructive" });
+    }
   };
 
-  const handleDeleteProject = (id: string) => {
-    const updatedProjects = projects.filter((p) => p.id !== id);
-    saveProjects(updatedProjects);
-    toast({ title: "Project deleted" });
+  const handleDeleteProject = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setProjects(projects.filter((p) => p.id !== id));
+      toast({ title: "Project deleted" });
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({ title: "Error deleting project", variant: "destructive" });
+    }
   };
 
   if (!isAuthenticated) {
@@ -170,15 +260,31 @@ const ProjectsAdmin = () => {
                 className="bg-secondary border-border"
               />
               <div className="space-y-2">
-                <Input
-                  placeholder="Image URL *"
-                  value={newProject.image}
-                  onChange={(e) => setNewProject({ ...newProject, image: e.target.value })}
-                  className="bg-secondary border-border"
-                />
-                <p className="text-xs text-muted-foreground">
-                  💡 Tip: Use direct image links from Imgur, Unsplash, or Google Drive
-                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Image URL *"
+                    value={newProject.image}
+                    onChange={(e) => setNewProject({ ...newProject, image: e.target.value })}
+                    className="bg-secondary border-border flex-1"
+                  />
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file, true);
+                      }}
+                    />
+                    <Button type="button" variant="outline" disabled={uploading} asChild>
+                      <span>
+                        <Upload size={16} className="mr-2" />
+                        {uploading ? "..." : "Upload"}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
                 {newProject.image && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Preview:</p>
@@ -200,7 +306,7 @@ const ProjectsAdmin = () => {
                 className="bg-secondary border-border"
               />
               <Input
-                placeholder="Video URL (YouTube embed)"
+                placeholder="Video URL (YouTube)"
                 value={newProject.videoUrl}
                 onChange={(e) => setNewProject({ ...newProject, videoUrl: e.target.value })}
                 className="bg-secondary border-border"
