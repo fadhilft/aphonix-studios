@@ -1,29 +1,46 @@
 import { useState } from "react";
 import { Mail, Phone, MapPin, Send, Instagram } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: "", email: "", subject: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const subject = encodeURIComponent(formData.subject || "Website Inquiry");
-    const body = encodeURIComponent(
-      `Name: ${formData.name}\n` +
-      `Email: ${formData.email}\n\n` +
-      `Message:\n${formData.message}`
-    );
-    
-    window.location.href = `mailto:aphonixstudios@gmail.com?subject=${subject}&body=${body}`;
-    
-    toast({
-      title: "Message Sent!",
-      description: "Your email client has been opened. Please send the email to complete.",
-    });
-    
-    setFormData({ name: "", email: "", subject: "", message: "" });
+    setSubmitting(true);
+
+    try {
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: {
+          type: 'contact',
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message,
+        }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "Message Sent!",
+        description: "Your message has been sent successfully. We'll get back to you soon!",
+      });
+      
+      setFormData({ name: "", email: "", subject: "", message: "" });
+    } catch (error: any) {
+      console.error('Contact error:', error);
+      toast({
+        title: "Failed to Send",
+        description: "There was an error sending your message. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -155,10 +172,17 @@ const Contact = () => {
 
               <button
                 type="submit"
-                className="w-full px-6 py-4 bg-primary text-primary-foreground font-display font-semibold rounded-lg box-glow hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                disabled={submitting}
+                className="w-full px-6 py-4 bg-primary text-primary-foreground font-display font-semibold rounded-lg box-glow hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
               >
-                <Send size={20} />
-                Send Message
+                {submitting ? (
+                  <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Send size={20} />
+                    Send Message
+                  </>
+                )}
               </button>
             </div>
           </form>
