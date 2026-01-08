@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingBag, Send, Search, ArrowLeft, Zap, Flame, Tag, Sparkles } from "lucide-react";
+import { ShoppingBag, Send, Search, ArrowLeft, Zap, Flame, Tag, Sparkles, Clock, Percent, Gift, Star, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -19,13 +19,18 @@ const StorePage = () => {
   const [orderForm, setOrderForm] = useState({ productId: "", name: "", email: "", phone: "", address: "" });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [megaSaleEnabled, setMegaSaleEnabled] = useState(false);
+  const [megaSaleEnabled, setMegaSaleEnabled] = useState<boolean | null>(null);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Fetch mega sale setting FIRST before showing content
   useEffect(() => {
-    fetchProducts();
-    fetchMegaSaleSetting();
+    const init = async () => {
+      await fetchMegaSaleSetting();
+      fetchProducts();
+    };
+    init();
   }, []);
 
   const fetchProducts = async () => {
@@ -60,9 +65,7 @@ const StorePage = () => {
       .eq('key', 'mega_sale_enabled')
       .maybeSingle();
     
-    if (data) {
-      setMegaSaleEnabled(data.value === 'true');
-    }
+    setMegaSaleEnabled(data?.value === 'true');
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -85,29 +88,53 @@ const StorePage = () => {
     e.preventDefault();
     
     if (!selectedProduct) return;
-    
-    const subject = encodeURIComponent(`New Order: ${selectedProduct.name}`);
-    const body = encodeURIComponent(
-      `New Order Details:\n\n` +
-      `Product: ${selectedProduct.name}\n` +
-      `Price: ₹${selectedProduct.price}\n\n` +
-      `Customer Details:\n` +
-      `Name: ${orderForm.name}\n` +
-      `Email: ${orderForm.email}\n` +
-      `Phone: ${orderForm.phone}\n` +
-      `Address: ${orderForm.address}`
-    );
-    
-    window.location.href = `mailto:aphonixstudios@gmail.com?subject=${subject}&body=${body}`;
-    
-    toast({
-      title: "Order Submitted!",
-      description: "Your order request has been sent. We'll contact you soon!",
-    });
-    
-    setSelectedProduct(null);
-    setOrderForm({ productId: "", name: "", email: "", phone: "", address: "" });
+    setSubmittingOrder(true);
+
+    try {
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: {
+          type: 'order',
+          name: orderForm.name,
+          email: orderForm.email,
+          phone: orderForm.phone,
+          address: orderForm.address,
+          productName: selectedProduct.name,
+          productPrice: selectedProduct.price,
+        }
+      });
+
+      if (error) throw error;
+      
+      toast({
+        title: "🎉 Order Submitted!",
+        description: "Your order has been sent successfully. We'll contact you soon!",
+      });
+      
+      setSelectedProduct(null);
+      setOrderForm({ productId: "", name: "", email: "", phone: "", address: "" });
+    } catch (error: any) {
+      console.error('Order error:', error);
+      toast({
+        title: "Order Failed",
+        description: "There was an error sending your order. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmittingOrder(false);
+    }
   };
+
+  // Show loading until mega sale setting is loaded
+  if (megaSaleEnabled === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading store...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${megaSaleEnabled ? 'bg-gradient-to-b from-red-950 via-background to-orange-950' : 'bg-background'}`}>
@@ -136,23 +163,40 @@ const StorePage = () => {
         )}
       </div>
 
-      {/* Mega Sale Banner */}
+      {/* Mega Sale Banner - Enhanced */}
       {megaSaleEnabled && (
-        <div className="relative z-50 bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 py-3 overflow-hidden">
-          <div className="flex items-center justify-center gap-4 animate-pulse">
-            <Flame className="text-white animate-bounce" size={24} />
-            <span className="text-white font-display font-bold text-lg md:text-xl tracking-wider">
-              🔥 MEGA SALE IS LIVE! HUGE DISCOUNTS! 🔥
-            </span>
-            <Flame className="text-white animate-bounce" size={24} />
-          </div>
-          {/* Scrolling text */}
-          <div className="absolute inset-0 flex items-center overflow-hidden opacity-20">
-            <div className="whitespace-nowrap animate-marquee text-white font-bold text-2xl">
-              SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE •
+        <>
+          {/* Top Ticker Banner */}
+          <div className="relative z-50 bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 py-3 overflow-hidden">
+            <div className="flex items-center justify-center gap-4 animate-pulse">
+              <Flame className="text-white animate-bounce" size={24} />
+              <span className="text-white font-display font-bold text-lg md:text-xl tracking-wider">
+                🔥 MEGA SALE IS LIVE! UP TO 70% OFF! 🔥
+              </span>
+              <Flame className="text-white animate-bounce" size={24} />
+            </div>
+            <div className="absolute inset-0 flex items-center overflow-hidden opacity-20">
+              <div className="whitespace-nowrap animate-marquee text-white font-bold text-2xl">
+                SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE •
+              </div>
             </div>
           </div>
-        </div>
+          
+          {/* Floating Sale Elements */}
+          <div className="fixed bottom-4 left-4 z-40 bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-full font-bold animate-bounce shadow-lg shadow-orange-500/50">
+            <div className="flex items-center gap-2">
+              <Clock size={16} />
+              <span>Limited Time!</span>
+            </div>
+          </div>
+          
+          <div className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-2 rounded-full font-bold animate-bounce shadow-lg shadow-yellow-500/50" style={{ animationDelay: '0.5s' }}>
+            <div className="flex items-center gap-2">
+              <Percent size={16} />
+              <span>Huge Savings!</span>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Header */}
@@ -212,14 +256,22 @@ const StorePage = () => {
           </p>
           
           {megaSaleEnabled && (
-            <div className="flex justify-center gap-4 mt-6">
-              <div className="flex items-center gap-2 px-4 py-2 bg-red-500/20 rounded-full border border-red-500/50">
+            <div className="flex flex-wrap justify-center gap-3 mt-6">
+              <div className="flex items-center gap-2 px-4 py-2 bg-red-500/20 rounded-full border border-red-500/50 animate-pulse">
                 <Tag className="text-red-500" size={16} />
                 <span className="text-red-400 font-medium">Hot Deals</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 rounded-full border border-orange-500/50">
+              <div className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 rounded-full border border-orange-500/50 animate-pulse" style={{ animationDelay: '0.2s' }}>
                 <Sparkles className="text-orange-500" size={16} />
                 <span className="text-orange-400 font-medium">Limited Time</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 rounded-full border border-yellow-500/50 animate-pulse" style={{ animationDelay: '0.4s' }}>
+                <Gift className="text-yellow-500" size={16} />
+                <span className="text-yellow-400 font-medium">Free Gifts</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-pink-500/20 rounded-full border border-pink-500/50 animate-pulse" style={{ animationDelay: '0.6s' }}>
+                <Crown className="text-pink-500" size={16} />
+                <span className="text-pink-400 font-medium">VIP Offers</span>
               </div>
             </div>
           )}
@@ -257,11 +309,17 @@ const StorePage = () => {
                   />
                   <div className={`absolute inset-0 bg-gradient-to-t to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${megaSaleEnabled ? 'from-red-900/80' : 'from-background/80'}`} />
                   
-                  {/* Sale Badge */}
+                  {/* Sale Badges */}
                   {megaSaleEnabled && (
-                    <div className="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full font-bold text-sm animate-bounce">
-                      🔥 SALE
-                    </div>
+                    <>
+                      <div className="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full font-bold text-sm animate-bounce">
+                        🔥 SALE
+                      </div>
+                      <div className="absolute top-3 left-3 bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-2 py-1 rounded-full font-bold text-xs flex items-center gap-1">
+                        <Star size={12} fill="currentColor" />
+                        DEAL
+                      </div>
+                    </>
                   )}
                 </div>
                 <div className="p-6">
@@ -360,14 +418,21 @@ const StorePage = () => {
                 </button>
                 <button
                   type="submit"
-                  className={`flex-1 px-4 py-3 font-medium rounded-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 ${
-                    megaSaleEnabled 
+                  disabled={submittingOrder}
+                  className={`flex-1 px-4 py-3 font-medium rounded-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100 ${
+                    megaSaleEnabled
                       ? 'bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white' 
                       : 'bg-primary text-primary-foreground'
                   }`}
                 >
-                  <Send size={18} />
-                  {megaSaleEnabled ? '🔥 Send Order' : 'Send Order'}
+                  {submittingOrder ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Send size={18} />
+                      {megaSaleEnabled ? '🔥 Send Order' : 'Send Order'}
+                    </>
+                  )}
                 </button>
               </div>
             </form>
