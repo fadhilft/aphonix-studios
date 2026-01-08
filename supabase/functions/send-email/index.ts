@@ -1,7 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +38,20 @@ const handler = async (req: Request): Promise<Response> => {
     let htmlContent = "";
     
     if (data.type === "order") {
+      // Save order to database
+      const { error: dbError } = await supabase.from("orders").insert({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        address: data.address || null,
+        product_name: data.productName,
+        product_price: data.productPrice,
+      });
+
+      if (dbError) {
+        console.error("Error saving order to database:", dbError);
+      }
+
       subject = `🛒 New Order: ${data.productName}`;
       htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -56,6 +75,18 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
       `;
     } else {
+      // Save contact message to database
+      const { error: dbError } = await supabase.from("contact_messages").insert({
+        name: data.name,
+        email: data.email,
+        subject: data.subject || null,
+        message: data.message,
+      });
+
+      if (dbError) {
+        console.error("Error saving contact message to database:", dbError);
+      }
+
       subject = `📧 New Inquiry: ${data.subject || "Website Contact"}`;
       htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
