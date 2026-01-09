@@ -15,7 +15,7 @@ const corsHeaders = {
 };
 
 interface EmailRequest {
-  type: "order" | "contact";
+  type: "order" | "contact" | "reply";
   name: string;
   email: string;
   phone?: string;
@@ -24,6 +24,7 @@ interface EmailRequest {
   message?: string;
   productName?: string;
   productPrice?: number;
+  orderId?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -36,6 +37,7 @@ const handler = async (req: Request): Promise<Response> => {
     
     let subject = "";
     let htmlContent = "";
+    let toEmail = ["fadhilft637@gmail.com"];
     
     if (data.type === "order") {
       // Save order to database
@@ -74,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
       `;
-    } else {
+    } else if (data.type === "contact") {
       // Save contact message to database
       const { error: dbError } = await supabase.from("contact_messages").insert({
         name: data.name,
@@ -107,11 +109,36 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
       `;
+    } else if (data.type === "reply") {
+      // Send reply to customer
+      toEmail = [data.email];
+      subject = data.subject || "Reply from Aphonix Studios";
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #7c3aed, #3b82f6); padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">📬 Message from Aphonix Studios</h1>
+          </div>
+          <div style="padding: 30px; background: #1a1a2e; color: white;">
+            <p style="font-size: 16px;">Dear ${data.name},</p>
+            <div style="background: #0d0d1a; padding: 20px; border-radius: 8px; margin: 20px 0; white-space: pre-wrap; line-height: 1.6;">
+              ${data.message}
+            </div>
+            <p style="color: #888; font-size: 14px; margin-top: 20px;">
+              Best regards,<br>
+              <strong style="color: #7c3aed;">Aphonix Studios Team</strong>
+            </p>
+          </div>
+          <div style="background: #0d0d1a; padding: 20px; text-align: center; color: #888;">
+            <p>This email was sent from Aphonix Studios</p>
+            <p style="font-size: 12px;">If you have any questions, feel free to reply to this email.</p>
+          </div>
+        </div>
+      `;
     }
 
     const emailResponse = await resend.emails.send({
       from: "Aphonix Studios <onboarding@resend.dev>",
-      to: ["fadhilft637@gmail.com"],
+      to: toEmail,
       subject: subject,
       html: htmlContent,
     });
