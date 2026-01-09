@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { ShoppingBag, Send, Search, ArrowLeft, Zap, Flame, Tag, Sparkles, Clock, Percent, Gift, Star, Crown } from "lucide-react";
+import { ShoppingBag, Send, Search, ArrowLeft, Zap, Flame, Tag, Sparkles, Clock, Percent, Gift, Star, Crown, Heart, ShoppingCart, LogOut, User, X, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/hooks/useCart";
 
 interface Product {
   id: string;
@@ -21,17 +23,21 @@ const StorePage = () => {
   const [loading, setLoading] = useState(true);
   const [megaSaleEnabled, setMegaSaleEnabled] = useState<boolean | null>(null);
   const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [showCart, setShowCart] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  const { cartItems, addToCart, removeFromCart, isInCart, cartCount } = useCart();
 
-  // Fetch mega sale setting FIRST before showing content
   useEffect(() => {
     const init = async () => {
       await fetchMegaSaleSetting();
-      fetchProducts();
+      if (user) {
+        fetchProducts();
+      }
     };
     init();
-  }, []);
+  }, [user]);
 
   const fetchProducts = async () => {
     try {
@@ -82,6 +88,30 @@ const StorePage = () => {
 
   const handleOrder = (product: Product) => {
     setSelectedProduct(product);
+    setOrderForm(prev => ({ ...prev, email: user?.email || "" }));
+  };
+
+  const handleAddToCart = async (product: Product) => {
+    const success = await addToCart(product.id);
+    if (success) {
+      toast({
+        title: "Added to Saved Items!",
+        description: `${product.name} has been saved.`,
+      });
+    } else {
+      toast({
+        title: "Already Saved",
+        description: "This item is already in your saved list.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveFromCart = async (cartItemId: string) => {
+    const success = await removeFromCart(cartItemId);
+    if (success) {
+      toast({ title: "Removed", description: "Item removed from saved list." });
+    }
   };
 
   const submitOrder = async (e: React.FormEvent) => {
@@ -125,12 +155,67 @@ const StorePage = () => {
   };
 
   // Show loading until mega sale setting is loaded
-  if (megaSaleEnabled === null) {
+  if (megaSaleEnabled === null || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Loading store...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!user) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 ${megaSaleEnabled ? 'bg-gradient-to-b from-red-950 via-background to-orange-950' : 'bg-background'}`}>
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-grid opacity-30" />
+          {megaSaleEnabled ? (
+            <>
+              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-500/30 rounded-full blur-3xl animate-pulse" />
+              <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-500/30 rounded-full blur-3xl animate-pulse" />
+            </>
+          ) : (
+            <>
+              <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
+              <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse" />
+            </>
+          )}
+        </div>
+        
+        <div className={`relative z-10 border rounded-2xl p-8 max-w-md w-full text-center ${megaSaleEnabled ? 'bg-gradient-to-br from-red-950/80 via-card to-orange-950/80 border-orange-500/50' : 'bg-card border-border'}`}>
+          <img src={logo} alt="Aphonix Studios" className="h-20 w-20 mx-auto mb-6 invert" />
+          <h1 className={`font-display text-3xl font-bold mb-2 ${megaSaleEnabled ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500' : 'gradient-text'}`}>
+            {megaSaleEnabled ? '🔥 MEGA SALE STORE 🔥' : 'Aphonix Store'}
+          </h1>
+          <p className={`mb-8 ${megaSaleEnabled ? 'text-orange-200' : 'text-muted-foreground'}`}>
+            Sign in with your Google account to browse and save products
+          </p>
+          
+          <button
+            onClick={signInWithGoogle}
+            className={`w-full flex items-center justify-center gap-3 px-6 py-4 font-display font-semibold rounded-xl transition-all hover:scale-[1.02] ${
+              megaSaleEnabled 
+                ? 'bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white hover:shadow-lg hover:shadow-orange-500/50' 
+                : 'bg-primary text-primary-foreground hover:shadow-lg hover:shadow-primary/30'
+            }`}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Sign in with Google
+          </button>
+          
+          <div className="mt-6">
+            <Link to="/" className={`text-sm hover:underline ${megaSaleEnabled ? 'text-orange-400' : 'text-primary'}`}>
+              ← Back to Website
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -143,7 +228,6 @@ const StorePage = () => {
         <div className="absolute inset-0 bg-grid opacity-30" />
         {megaSaleEnabled ? (
           <>
-            {/* Mega Sale Animated Elements */}
             <div className="absolute top-0 left-0 w-full h-full">
               <div className="absolute top-10 left-10 text-6xl animate-bounce" style={{ animationDelay: '0s' }}>🔥</div>
               <div className="absolute top-20 right-20 text-5xl animate-bounce" style={{ animationDelay: '0.2s' }}>💥</div>
@@ -163,10 +247,9 @@ const StorePage = () => {
         )}
       </div>
 
-      {/* Mega Sale Banner - Enhanced */}
+      {/* Mega Sale Banner */}
       {megaSaleEnabled && (
         <>
-          {/* Top Ticker Banner */}
           <div className="relative z-50 bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500 py-3 overflow-hidden">
             <div className="flex items-center justify-center gap-4 animate-pulse">
               <Flame className="text-white animate-bounce" size={24} />
@@ -175,14 +258,8 @@ const StorePage = () => {
               </span>
               <Flame className="text-white animate-bounce" size={24} />
             </div>
-            <div className="absolute inset-0 flex items-center overflow-hidden opacity-20">
-              <div className="whitespace-nowrap animate-marquee text-white font-bold text-2xl">
-                SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE • SALE •
-              </div>
-            </div>
           </div>
           
-          {/* Floating Sale Elements */}
           <div className="fixed bottom-4 left-4 z-40 bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2 rounded-full font-bold animate-bounce shadow-lg shadow-orange-500/50">
             <div className="flex items-center gap-2">
               <Clock size={16} />
@@ -190,7 +267,7 @@ const StorePage = () => {
             </div>
           </div>
           
-          <div className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-2 rounded-full font-bold animate-bounce shadow-lg shadow-yellow-500/50" style={{ animationDelay: '0.5s' }}>
+          <div className="fixed bottom-4 right-20 z-40 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-4 py-2 rounded-full font-bold animate-bounce shadow-lg shadow-yellow-500/50" style={{ animationDelay: '0.5s' }}>
             <div className="flex items-center gap-2">
               <Percent size={16} />
               <span>Huge Savings!</span>
@@ -228,6 +305,37 @@ const StorePage = () => {
                 />
               </div>
             </form>
+
+            {/* User Actions */}
+            <div className="flex items-center gap-3">
+              {/* Cart Button */}
+              <button
+                onClick={() => setShowCart(true)}
+                className={`relative p-3 rounded-full transition-all ${megaSaleEnabled ? 'bg-orange-500/20 hover:bg-orange-500/30' : 'bg-secondary hover:bg-secondary/80'}`}
+              >
+                <Heart size={20} className={megaSaleEnabled ? 'text-orange-500' : 'text-primary'} />
+                {cartCount > 0 && (
+                  <span className={`absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center ${megaSaleEnabled ? 'bg-orange-500 text-white' : 'bg-primary text-primary-foreground'}`}>
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+
+              {/* User Menu */}
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2 text-sm">
+                  <User size={16} className="text-muted-foreground" />
+                  <span className="text-muted-foreground">{user.email?.split('@')[0]}</span>
+                </div>
+                <button
+                  onClick={signOut}
+                  className={`p-2 rounded-lg transition-colors ${megaSaleEnabled ? 'hover:bg-orange-500/20' : 'hover:bg-secondary'}`}
+                  title="Sign out"
+                >
+                  <LogOut size={18} className="text-muted-foreground" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -309,17 +417,25 @@ const StorePage = () => {
                   />
                   <div className={`absolute inset-0 bg-gradient-to-t to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${megaSaleEnabled ? 'from-red-900/80' : 'from-background/80'}`} />
                   
+                  {/* Save Button */}
+                  <button
+                    onClick={() => handleAddToCart(product)}
+                    className={`absolute top-3 left-3 p-2 rounded-full transition-all ${
+                      isInCart(product.id)
+                        ? 'bg-red-500 text-white'
+                        : megaSaleEnabled
+                          ? 'bg-orange-500/80 text-white hover:bg-orange-500'
+                          : 'bg-primary/80 text-primary-foreground hover:bg-primary'
+                    }`}
+                  >
+                    <Heart size={16} fill={isInCart(product.id) ? 'currentColor' : 'none'} />
+                  </button>
+                  
                   {/* Sale Badges */}
                   {megaSaleEnabled && (
-                    <>
-                      <div className="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full font-bold text-sm animate-bounce">
-                        🔥 SALE
-                      </div>
-                      <div className="absolute top-3 left-3 bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-2 py-1 rounded-full font-bold text-xs flex items-center gap-1">
-                        <Star size={12} fill="currentColor" />
-                        DEAL
-                      </div>
-                    </>
+                    <div className="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full font-bold text-sm animate-bounce">
+                      🔥 SALE
+                    </div>
                   )}
                 </div>
                 <div className="p-6">
@@ -351,6 +467,75 @@ const StorePage = () => {
         )}
       </main>
 
+      {/* Cart Drawer */}
+      {showCart && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setShowCart(false)} />
+          <div className={`relative w-full max-w-md h-full border-l overflow-y-auto animate-slide-in-right ${megaSaleEnabled ? 'bg-gradient-to-b from-red-950 via-card to-orange-950 border-orange-500/50' : 'bg-card border-border'}`}>
+            <div className={`sticky top-0 z-10 p-4 border-b ${megaSaleEnabled ? 'bg-red-950/90 border-orange-500/50' : 'bg-card border-border'}`}>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-xl font-bold flex items-center gap-2">
+                  <Heart className={megaSaleEnabled ? 'text-orange-500' : 'text-primary'} size={24} />
+                  Saved Items ({cartCount})
+                </h2>
+                <button onClick={() => setShowCart(false)} className="p-2 hover:bg-secondary rounded-lg">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              {cartItems.length === 0 ? (
+                <div className="text-center py-12">
+                  <Heart className="mx-auto text-muted-foreground mb-4" size={48} />
+                  <p className="text-muted-foreground">No saved items yet.</p>
+                  <p className="text-sm text-muted-foreground mt-2">Click the heart on products to save them!</p>
+                </div>
+              ) : (
+                cartItems.map((item) => (
+                  <div key={item.id} className={`rounded-xl p-4 ${megaSaleEnabled ? 'bg-red-900/30 border border-orange-500/30' : 'bg-secondary/50 border border-border'}`}>
+                    <div className="flex gap-4">
+                      <img
+                        src={item.product?.image}
+                        alt={item.product?.name}
+                        className="w-20 h-20 object-cover rounded-lg"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://placehold.co/80x80/1a1a2e/00f0ff?text=No+Image';
+                        }}
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-display font-semibold">{item.product?.name}</h3>
+                        <p className={`text-lg font-bold mt-1 ${megaSaleEnabled ? 'text-orange-500' : 'text-primary'}`}>
+                          ₹{item.product?.price.toLocaleString()}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => item.product && handleOrder(item.product)}
+                            className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-lg ${
+                              megaSaleEnabled
+                                ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                                : 'bg-primary text-primary-foreground'
+                            }`}
+                          >
+                            Order
+                          </button>
+                          <button
+                            onClick={() => handleRemoveFromCart(item.id)}
+                            className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Order Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -370,7 +555,11 @@ const StorePage = () => {
                   required
                   value={orderForm.name}
                   onChange={(e) => setOrderForm({ ...orderForm, name: e.target.value })}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${megaSaleEnabled ? 'bg-red-900/30 border-orange-500/30 focus:ring-orange-500' : 'bg-input border-border focus:ring-primary'}`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${
+                    megaSaleEnabled 
+                      ? 'bg-red-900/50 border-orange-500/50 focus:ring-orange-500' 
+                      : 'bg-input border-border focus:ring-primary'
+                  }`}
                   placeholder="Enter your name"
                 />
               </div>
@@ -381,58 +570,60 @@ const StorePage = () => {
                   required
                   value={orderForm.email}
                   onChange={(e) => setOrderForm({ ...orderForm, email: e.target.value })}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${megaSaleEnabled ? 'bg-red-900/30 border-orange-500/30 focus:ring-orange-500' : 'bg-input border-border focus:ring-primary'}`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${
+                    megaSaleEnabled 
+                      ? 'bg-red-900/50 border-orange-500/50 focus:ring-orange-500' 
+                      : 'bg-input border-border focus:ring-primary'
+                  }`}
                   placeholder="Enter your email"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Phone</label>
+                <label className="block text-sm font-medium mb-2">Phone (Optional)</label>
                 <input
                   type="tel"
-                  required
                   value={orderForm.phone}
                   onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${megaSaleEnabled ? 'bg-red-900/30 border-orange-500/30 focus:ring-orange-500' : 'bg-input border-border focus:ring-primary'}`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${
+                    megaSaleEnabled 
+                      ? 'bg-red-900/50 border-orange-500/50 focus:ring-orange-500' 
+                      : 'bg-input border-border focus:ring-primary'
+                  }`}
                   placeholder="Enter your phone number"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Address</label>
+                <label className="block text-sm font-medium mb-2">Address (Optional)</label>
                 <textarea
-                  required
                   value={orderForm.address}
                   onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 resize-none transition-all ${megaSaleEnabled ? 'bg-red-900/30 border-orange-500/30 focus:ring-orange-500' : 'bg-input border-border focus:ring-primary'}`}
-                  rows={3}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 resize-none ${
+                    megaSaleEnabled 
+                      ? 'bg-red-900/50 border-orange-500/50 focus:ring-orange-500' 
+                      : 'bg-input border-border focus:ring-primary'
+                  }`}
                   placeholder="Enter your address"
+                  rows={3}
                 />
               </div>
-              
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setSelectedProduct(null)}
-                  className={`flex-1 px-4 py-3 border rounded-lg hover:bg-secondary transition-colors ${megaSaleEnabled ? 'border-orange-500/30' : 'border-border'}`}
+                  className="flex-1 px-4 py-3 border border-border rounded-lg font-medium hover:bg-secondary transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingOrder}
-                  className={`flex-1 px-4 py-3 font-medium rounded-lg hover:scale-105 transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100 ${
-                    megaSaleEnabled
-                      ? 'bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white' 
-                      : 'bg-primary text-primary-foreground'
+                  className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all disabled:opacity-50 ${
+                    megaSaleEnabled 
+                      ? 'bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white hover:shadow-lg' 
+                      : 'bg-primary text-primary-foreground hover:shadow-lg'
                   }`}
                 >
-                  {submittingOrder ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Send size={18} />
-                      {megaSaleEnabled ? '🔥 Send Order' : 'Send Order'}
-                    </>
-                  )}
+                  {submittingOrder ? 'Submitting...' : 'Submit Order'}
                 </button>
               </div>
             </form>
@@ -442,11 +633,18 @@ const StorePage = () => {
 
       <style>{`
         @keyframes marquee {
-          0% { transform: translateX(0%); }
+          0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
         .animate-marquee {
-          animation: marquee 10s linear infinite;
+          animation: marquee 20s linear infinite;
+        }
+        @keyframes slide-in-right {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slide-in-right {
+          animation: slide-in-right 0.3s ease-out;
         }
       `}</style>
     </div>
