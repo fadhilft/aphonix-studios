@@ -76,6 +76,8 @@ const StorePage = () => {
     e.preventDefault();
     if (searchQuery.toLowerCase() === "admin") {
       navigate("/admin");
+    } else if (searchQuery.toLowerCase() === "order" || searchQuery.toLowerCase() === "orders") {
+      navigate("/orders-admin");
     }
   };
 
