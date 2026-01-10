@@ -321,19 +321,10 @@ const StorePage = () => {
                 )}
               </button>
 
-              {/* User Menu */}
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-2 text-sm">
-                  <User size={16} className="text-muted-foreground" />
-                  <span className="text-muted-foreground">{user.email?.split('@')[0]}</span>
-                </div>
-                <button
-                  onClick={signOut}
-                  className={`p-2 rounded-lg transition-colors ${megaSaleEnabled ? 'hover:bg-orange-500/20' : 'hover:bg-secondary'}`}
-                  title="Sign out"
-                >
-                  <LogOut size={18} className="text-muted-foreground" />
-                </button>
+              {/* User Info */}
+              <div className="hidden sm:flex items-center gap-2 text-sm">
+                <User size={16} className="text-muted-foreground" />
+                <span className="text-muted-foreground">{user.email?.split('@')[0]}</span>
               </div>
             </div>
           </div>
